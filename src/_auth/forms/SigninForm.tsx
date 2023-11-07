@@ -1,19 +1,23 @@
-import React from 'react'
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-
-
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import * as z from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "react-router-dom";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import Loader from "@/components/shared/Loader"
-import { SigninValidation } from '@/lib/validation';
-
+import Loader from "@/components/shared/Loader";
+import { useToast } from "@/components/ui/use-toast";
+import { SigninValidation } from "@/lib/validation";
+import { useSignInAccount } from "@/lib/react-query/queries";
+import { useUserContext } from "@/context/AuthContext";
 
 const SigninForm = () => {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const { checkAuthUser, isLoading: isUserLoading } = useUserContext();
 
+  // Query
+  const { mutateAsync: signInAccount } = useSignInAccount();
 
   const form = useForm<z.infer<typeof SigninValidation>>({
     resolver: zodResolver(SigninValidation),
@@ -23,23 +27,37 @@ const SigninForm = () => {
     },
   });
 
-
   const handleSignin = async (user: z.infer<typeof SigninValidation>) => {
-    
-    
+    const session = await signInAccount(user);
+
+    if (!session) {
+      toast({ title: "Falha no login. Por favor, tente novamente." });
+      
+      return;
+    }
+
+    const isLoggedIn = await checkAuthUser();
+
+    if (isLoggedIn) {
+      form.reset();
+
+      navigate("/");
+    } else {
+      toast({ title: "Falha no login. Por favor, tente novamente.", });
+      
+      return;
+    }
   };
 
-  
   return (
     <Form {...form}>
       <div className="sm:w-420 flex-center flex-col">
       <img src="/assets/images/logo.png" alt="logo" className="w-11 h-11" />
-
         <h2 className="h3-bold md:h2-bold pt-5 sm:pt-12">
           Faça login na sua conta
         </h2>
         <p className="text-light-3 small-medium md:base-regular mt-2">
-          Bem vindo(a) de volta! Por favor, insira seus dados.
+          Bem vindo de volta! Por favor, insira seus dados.
         </p>
         <form
           onSubmit={form.handleSubmit(handleSignin)}
@@ -73,13 +91,17 @@ const SigninForm = () => {
           />
 
           <Button type="submit" className="shad-button_primary">
-           
-            Conecte-se
-           
+            { isUserLoading ? (
+              <div className="flex-center gap-2">
+                <Loader /> Carregando...
+              </div>
+            ) : (
+              "Entrar"
+            )}
           </Button>
 
           <p className="text-small-regular text-light-2 text-center mt-2">
-            Ainda tem uma conta?
+            Não tem uma conta?
             <Link
               to="/sign-up"
               className="text-primary-500 text-small-semibold ml-1">
@@ -89,7 +111,7 @@ const SigninForm = () => {
         </form>
       </div>
     </Form>
-  )
-}
+  );
+};
 
-export default SigninForm
+export default SigninForm;
